@@ -16,13 +16,13 @@ CSS = """
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 *{margin:0;padding:0;box-sizing:border-box}
 ::selection{background:var(--accent);color:#fff}
-/* AMOLED default — same tokens as news.raghav56.tech */
+/* Dark default (renamed from AMOLED to match news.raghav56.tech) — same tokens */
 :root{
   --bg:#000000; --bg2:#0a0a0a; --card:#0d0d0d; --fg:#e6e6e6; --mut:#888888;
   --accent:#8b5cf6; --accent2:#6366f1; --border:#191919;
   --shadow:0 4px 20px rgba(0,0,0,.7); color-scheme:dark;
 }
-[data-theme=amoled]{
+[data-theme=dark]{
   --bg:#000000; --bg2:#0a0a0a; --card:#0d0d0d; --fg:#e6e6e6; --mut:#888888;
   --accent:#8b5cf6; --accent2:#6366f1; --border:#191919;
   --shadow:0 4px 20px rgba(0,0,0,.7);
@@ -87,7 +87,7 @@ footer a{color:var(--mut)}
 
 THEME_JS = """
 const r=document.documentElement;
-if(localStorage.getItem('theme'))r.dataset.theme=localStorage.getItem('theme');
+var th=localStorage.getItem('theme');if(th==='amoled')th='dark';r.dataset.theme=th||'';
 document.getElementById('themes').addEventListener('click',e=>{
   const b=e.target.closest('button');if(!b)return;
   r.dataset.theme=b.dataset.t;localStorage.setItem('theme',b.dataset.t);sync();
@@ -150,15 +150,15 @@ def render_edition(editions, idx, out_path):
     else:
         nav.append('<a style="visibility:hidden" aria-hidden="true"></a>')
 
-    page = f"""<!doctype html><html lang="en" data-theme="amoled"><head><meta charset="utf-8">
+    page = f"""<!doctype html><html lang="en" data-theme="dark"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🧾</text></svg>
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20viewBox=%220%200%20100%20100%22%3E%3Ctext%20y=%22.9em%22%20font-size=%2290%22%3E%F0%9F%A7%BE%3C/text%3E%3C/svg%3E">
 <title>PaperTrail — {when_str}</title>
 <style>{CSS}</style></head><body>
 <header class="topbar">
 <a class="brand" href="/"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M16 13H8"/><path d="M16 17H8"/></svg> Paper<em>Trail</em></a>
 <nav class="themes" id="themes">
-<button data-t="amoled">AMOLED</button>
+<button data-t="dark">Dark</button>
 <button data-t="paper">Paper</button>
 <button data-t="light">Light</button>
 </nav>
@@ -199,12 +199,12 @@ def main() -> int:
         f'<li><a href="{d}.html">{d}</a><span class="meta-line" style="margin:0">{len(e)} papers</span></li>'
         for d, e in reversed(editions)
     )
-    archive = f"""<!doctype html><html lang="en" data-theme="amoled"><head><meta charset="utf-8">
+    archive = f"""<!doctype html><html lang="en" data-theme="dark"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1"><title>PaperTrail Archive</title>
 <style>{CSS}ul{{list-style:none}}li{{display:flex;justify-content:space-between;align-items:center;background:var(--card);border:1px solid var(--border);border-radius:.75rem;padding:.7rem 1rem;margin-top:.5rem;position:relative;z-index:1}}
 li a{{color:var(--fg);text-decoration:none;font-weight:500}}li a:hover{{color:var(--accent)}}</style></head><body>
 <header class="topbar"><a class="brand" href="/">Paper<em>Trail</em></a>
-<nav class="themes" id="themes"><button data-t="amoled">AMOLED</button><button data-t="paper">Paper</button><button data-t="light">Light</button></nav></header>
+<nav class="themes" id="themes"><button data-t="dark">Dark</button><button data-t="paper">Paper</button><button data-t="light">Light</button></nav></header>
 <p class="meta"><a href="/">📄 Latest</a><a href="https://news.raghav56.tech">📰 News Digest</a></p>
 <h2 class="t">Editions</h2><ul>{rows}</ul>
 <footer><a href="https://github.com/Raghav-56/papertrail">source</a></footer>
