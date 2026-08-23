@@ -27,7 +27,7 @@ CSS = """
   --accent:#8b5cf6; --accent2:#6366f1; --border:#191919;
   --shadow:0 4px 20px rgba(0,0,0,.7);
 }
-[data-theme=flexoki-light]{
+[data-theme=paper]{
   --bg:#fffcf0; --bg2:#f2ede4; --card:#faf6ec; --fg:#100f0c; --mut:#6f6e69;
   --accent:#205ea6; --accent2:#da702c; --border:#e2ddcf;
   --shadow:0 4px 16px rgba(80,60,20,.12); color-scheme:light;
@@ -159,7 +159,7 @@ def render_edition(editions, idx, out_path):
 <a class="brand" href="/"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M16 13H8"/><path d="M16 17H8"/></svg> Paper<em>Trail</em></a>
 <nav class="themes" id="themes">
 <button data-t="amoled">AMOLED</button>
-<button data-t="flexoki-light">Paper</button>
+<button data-t="paper">Paper</button>
 <button data-t="light">Light</button>
 </nav>
 </header>
@@ -204,7 +204,7 @@ def main() -> int:
 <style>{CSS}ul{{list-style:none}}li{{display:flex;justify-content:space-between;align-items:center;background:var(--card);border:1px solid var(--border);border-radius:.75rem;padding:.7rem 1rem;margin-top:.5rem;position:relative;z-index:1}}
 li a{{color:var(--fg);text-decoration:none;font-weight:500}}li a:hover{{color:var(--accent)}}</style></head><body>
 <header class="topbar"><a class="brand" href="/">Paper<em>Trail</em></a>
-<nav class="themes" id="themes"><button data-t="amoled">AMOLED</button><button data-t="flexoki-light">Paper</button><button data-t="light">Light</button></nav></header>
+<nav class="themes" id="themes"><button data-t="amoled">AMOLED</button><button data-t="paper">Paper</button><button data-t="light">Light</button></nav></header>
 <p class="meta"><a href="/">📄 Latest</a><a href="https://news.raghav56.tech">📰 News Digest</a></p>
 <h2 class="t">Editions</h2><ul>{rows}</ul>
 <footer><a href="https://github.com/Raghav-56/papertrail">source</a></footer>
