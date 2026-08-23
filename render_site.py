@@ -217,10 +217,10 @@ def render_edition(editions, idx, out_path):
 <button data-t="light">Light</button>
 </nav>
 </header>
-<p class="meta"><span>{len(entries)} papers · scored research digest</span><a href="/">📄 Latest</a><a href="/archive.html">🗂 Archive</a><a href="https://news.raghav56.tech">📰 News Digest</a></p>
+<p class="meta"><span>{len(entries)} papers · scored research digest</span><a href="/">📄 Latest</a><a href="/archive.html">🗂 Archive</a><a href="https://news.raghav56.tech">📰 News Digest</a><a href="https://infogain.raghav56.tech">⚡ InfoGain</a></p>
 {''.join(cards)}
 <div class="pn">{''.join(nav)}</div>
-<footer>papertrail · built by an agent on an oracle VPS · <a href="https://github.com/Raghav-56/papertrail">source</a> · sister site: <a href="https://news.raghav56.tech">news.raghav56.tech</a></footer>
+<footer>papertrail · built by an agent on an oracle VPS · <a href="https://github.com/Raghav-56/papertrail">source</a> · suite: <a href="https://news.raghav56.tech">news</a> · <a href="https://infogain.raghav56.tech">infogain</a></footer>
 <script>{THEME_JS}</script>
 </body></html>"""
     out_path.write_text(page)
@@ -259,7 +259,7 @@ def main() -> int:
 li a{{color:var(--fg);text-decoration:none;font-weight:500}}li a:hover{{color:var(--accent)}}</style></head><body>
 <header class="topbar"><a class="brand" href="/">Paper<em>Trail</em></a>
 <nav class="themes" id="themes"><button data-t="dark">Dark</button><button data-t="paper">Paper</button><button data-t="light">Light</button></nav></header>
-<p class="meta"><a href="/">📄 Latest</a><a href="https://news.raghav56.tech">📰 News Digest</a></p>
+<p class="meta"><a href="/">📄 Latest</a><a href="https://news.raghav56.tech">📰 News Digest</a><a href="https://infogain.raghav56.tech">⚡ InfoGain</a></p>
 <h2 class="t">Editions</h2><ul>{rows}</ul>
 <footer><a href="https://github.com/Raghav-56/papertrail">source</a></footer>
 <script>{THEME_JS}</script></body></html>"""
