@@ -5,8 +5,10 @@ Shares the news-digest theme system (data-theme attribute + CSS custom propertie
 persisted in localStorage) so both sites feel like one suite while staying separate repos.
 """
 import html
+import json
+import re
 import sys
-from datetime import date
+from datetime import datetime, timezone
 from pathlib import Path
 
 VAULT = Path.home() / "raghav/Raghav-obsidian/Notes/Digests"
@@ -111,11 +113,63 @@ def parse(md: str):
                 cur["meta"] = line.strip("*").strip()
             elif line.startswith("http"):
                 cur["link"] = line.strip()
+            # bare markdown link like [https://…](https://…) — use its target
+            elif line.startswith("[") and "](" in line:
+                cur["link"] = line[line.index("](") + 2:].rstrip(")").strip()
             elif line.strip() and not cur["link"]:
                 cur["abstract"] += (" " if cur["abstract"] else "") + line.strip()
     if cur:
         entries.append(cur)
     return entries
+
+
+# JSON export (schema 1): machine-readable feed for hub-site consumers.
+# Full items (title/url/source/score/summary) are included for the latest
+# edition only; older editions get title+path-only entries because the
+# per-item source/score/summary data is not retained in the export for
+# historical editions (parsed digest data is reused, nothing re-fetched).
+MAX_JSON_ITEMS_EDITIONS = 14
+
+
+def _meta_fields(meta: str):
+    """Extract (source, score) from a digest meta line like
+    'Unknown · 2026-08-22 · score 4 (matched: mcp) · source: `hn`'."""
+    m = re.search(r"score\s+(\d+)", meta)
+    score = int(m.group(1)) if m else None
+    m = re.search(r"source:\s*`(arxiv|hn)`", meta)
+    source = m.group(1) if m else None
+    return source, score
+
+
+def write_json_export(editions) -> None:
+    """Write /var/www/papertrail/papertrail.json. Never raises: a JSON
+    failure must not block HTML rendering, only warn."""
+    try:
+        latest_date, latest_entries = editions[-1]
+        json_editions = [{
+            "date": latest_date,
+            "path": f"/{latest_date}.html",
+            "items": [
+                {
+                    "title": e["title"],
+                    "url": e["link"],
+                    "source": _meta_fields(e["meta"])[0],
+                    "score": _meta_fields(e["meta"])[1],
+                    "summary": e["abstract"],
+                }
+                for e in latest_entries
+            ],
+        }]
+        for d, _e in reversed(editions[:-1]):
+            json_editions.append({"date": d, "path": f"/{d}.html", "items": []})
+        data = {
+            "schema": 1,
+            "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z"),
+            "editions": json_editions[:MAX_JSON_ITEMS_EDITIONS],
+        }
+        (OUT / "papertrail.json").write_text(json.dumps(data, indent=2) + "\n")
+    except Exception as exc:
+        print(f"WARNING: failed to write {OUT}/papertrail.json: {exc}", file=sys.stderr)
 
 
 def render_edition(editions, idx, out_path):
@@ -216,6 +270,7 @@ li a{{color:var(--fg);text-decoration:none;font-weight:500}}li a:hover{{color:va
         total += n
 
     latest_n = render_edition(editions, len(editions) - 1, OUT / "index.html")
+    write_json_export(editions)
     print(f"WROTE {OUT}/index.html ({latest_n} papers) + {len(editions) - 1} older editions, archive ({total} total)")
     return 0
 
