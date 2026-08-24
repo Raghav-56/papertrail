@@ -226,5 +226,90 @@ class SchemaV2ExportTest(unittest.TestCase):
         self.assertIn("▲ 4→1", page)
 
 
+def _paper(link_id, title="T", abstract="x", published="2026-08-23"):
+    return {"title": title, "abstract": abstract, "link":
+            f"https://arxiv.org/abs/{link_id}", "published": published,
+            "source": "arxiv"}
+
+
+class SuppressionTest(unittest.TestCase):
+    def setUp(self):
+        self.papers = [_paper("2408.0001", "agentic tool use"),
+                       _paper("2408.0002", "interpretability study")]
+
+    def test_load_suppressed_ids_dict_shape(self):
+        with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as f:
+            json.dump({"ids": [pt.item_id("https://arxiv.org/abs/2408.0001")]}, f)
+        self.assertEqual(pt.load_suppressed_ids(f.name),
+                         {pt.item_id("https://arxiv.org/abs/2408.0001")})
+
+    def test_load_suppressed_ids_plain_list_shape(self):
+        with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as f:
+            json.dump(["aaa", "bbb"], f)
+        self.assertEqual(pt.load_suppressed_ids(f.name), {"aaa", "bbb"})
+
+    def test_missing_or_corrupt_file_means_no_suppression(self):
+        self.assertEqual(pt.load_suppressed_ids("/nonexistent/suppressions.json"), set())
+        with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as f:
+            f.write("{not json")
+        self.assertEqual(pt.load_suppressed_ids(f.name), set())
+
+    def test_suppression_filters_daily_feed(self):
+        sup = {pt.item_id("https://arxiv.org/abs/2408.0001")}
+        daily = pt.select_daily([p for p in self.papers
+                                 if pt.item_id(p["link"]) not in sup],
+                                today=date(2026, 8, 24))
+        self.assertEqual([d["item_id"] for d in daily],
+                         [pt.item_id("https://arxiv.org/abs/2408.0002")])
+
+    def test_apply_suppression_reports_count(self):
+        sup = {pt.item_id("https://arxiv.org/abs/2408.0001")}
+        kept, n = pt.apply_suppression(self.papers, sup)
+        self.assertEqual(n, 1)
+        self.assertEqual(len(kept), 1)
+
+    def test_pool_entries_skip_suppressed(self):
+        state = {"entries": {}}
+        sup = {pt.item_id("https://arxiv.org/abs/2408.0001")}
+        candidates = [p for p in self.papers if pt.item_id(p["link"]) not in sup]
+        pt.update_pool(state, candidates, today=date(2026, 8, 24),
+                       signals_fn=lambda t: (0, 0))
+        self.assertNotIn(pt.item_id("https://arxiv.org/abs/2408.0001"), state["entries"])
+        self.assertIn(pt.item_id("https://arxiv.org/abs/2408.0002"), state["entries"])
+
+
+class KeywordsConfigTest(unittest.TestCase):
+    KW = {"agent": 9}
+
+    def test_config_keywords_override(self):
+        with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as f:
+            json.dump({"interests": {"keywords": self.KW}}, f)
+        self.assertEqual(pt.load_keywords(f.name), self.KW)
+
+    def test_fallback_when_config_missing(self):
+        self.assertEqual(pt.load_keywords("/nonexistent/config.json"),
+                         dict(pt.KEYWORDS))
+
+    def test_fallback_when_config_corrupt(self):
+        with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as f:
+            f.write("{oops")
+        self.assertEqual(pt.load_keywords(f.name), dict(pt.KEYWORDS))
+
+    def test_fallback_when_interests_shape_bad(self):
+        with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as f:
+            json.dump({"interests": {"keywords": ["not", "a", "dict"]}}, f)
+        self.assertEqual(pt.load_keywords(f.name), dict(pt.KEYWORDS))
+
+    def test_score_uses_active_keywords(self):
+        old = pt._ACTIVE_KEYWORDS
+        try:
+            pt._ACTIVE_KEYWORDS = dict(self.KW)
+            s, hits = pt.score({"title": "an agent paper", "abstract": ""})
+            self.assertEqual(s, 9)
+            self.assertEqual(hits, ["agent"])
+        finally:
+            pt._ACTIVE_KEYWORDS = old
+
+
 if __name__ == "__main__":
     unittest.main()

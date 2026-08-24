@@ -12,7 +12,6 @@ HN stories never appear as standalone items; they only feed the pool's value
 signal (and serve as an emergency fallback source for the daily feed when
 arXiv is unreachable).
 """
-import hashlib
 import json
 import math
 import re
@@ -25,6 +24,14 @@ from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 ARXIV_API = "http://export.arxiv.org/api/query"
+
+# Shared contract (infogain repo): canonical item_id = sha1(url)[:12]
+sys.path.insert(0, "/home/ubuntu/raghav/infogain")
+from contracts import item_id  # noqa: E402
+
+INFOGAIN_DIR = Path("/home/ubuntu/raghav/infogain")
+SUPPRESSIONS_PATH = INFOGAIN_DIR / "state" / "suppressions.json"
+INFOGAIN_CONFIG_PATH = INFOGAIN_DIR / "config.json"
 HN_API = "https://hn.algolia.com/api/v1"
 HN_ALGOLIA_SEARCH = f"{HN_API}/search"
 NS = {"a": "http://www.w3.org/2005/Atom"}
@@ -144,14 +151,61 @@ def fetch_hn_signals(title: str) -> tuple[int, int]:
 # ---------------------------------------------------------------- scoring
 
 def score(paper: dict) -> tuple[int, list[str]]:
+    kws = active_keywords()
     text = f"{paper['title']} {paper['abstract']}".lower()
-    hits = [kw for kw in KEYWORDS if kw in text]
-    return sum(KEYWORDS[kw] for kw in hits), hits
+    hits = [kw for kw in kws if kw in text]
+    return sum(kws[kw] for kw in hits), hits
 
 
-def item_id(url: str) -> str:
-    """Frozen contract: sha1(url)[:12]."""
-    return hashlib.sha1(url.encode("utf-8")).hexdigest()[:12]
+# ------------------------------------------------------- suppression + config
+
+def load_suppressed_ids(path=SUPPRESSIONS_PATH) -> set:
+    """Load suppressed item ids. Tolerates missing/corrupt file and both the
+    {"ids": [...]} and plain-list shapes; anything else means no suppression."""
+    try:
+        data = json.loads(Path(path).read_text())
+    except Exception:
+        return set()
+    if isinstance(data, dict):
+        data = data.get("ids")
+    if isinstance(data, list):
+        return {str(x) for x in data if isinstance(x, (str, int))}
+    return set()
+
+
+def apply_suppression(papers: list, suppressed: set) -> tuple[list, int]:
+    """Drop papers whose canonical item_id is suppressed."""
+    if not suppressed:
+        return papers, 0
+    kept = [p for p in papers if item_id(p["link"]) not in suppressed]
+    return kept, len(papers) - len(kept)
+
+
+_ACTIVE_KEYWORDS = None
+
+
+def load_keywords(config_path=INFOGAIN_CONFIG_PATH) -> dict:
+    """Keywords from config.json interests.keywords if present/parseable,
+    otherwise the hardcoded fallback KEYWORDS (unchanged)."""
+    try:
+        data = json.loads(Path(config_path).read_text())
+        interests = data.get("interests") if isinstance(data, dict) else None
+        kw = interests.get("keywords") if isinstance(interests, dict) else None
+        if (isinstance(kw, dict) and kw
+                and all(isinstance(k, str) and isinstance(v, int)
+                        for k, v in kw.items())):
+            return dict(kw)
+    except Exception:
+        pass
+    return dict(KEYWORDS)
+
+
+def active_keywords(reload: bool = False) -> dict:
+    """Cached keyword weights used for scoring; reload=True re-reads config."""
+    global _ACTIVE_KEYWORDS
+    if _ACTIVE_KEYWORDS is None or reload:
+        _ACTIVE_KEYWORDS = load_keywords()
+    return _ACTIVE_KEYWORDS
 
 
 def make_item(paper: dict, s: int, hits: list[str]) -> dict:
@@ -381,6 +435,7 @@ def main() -> int:
     web_dir = Path("/var/www/papertrail")
     web_dir.mkdir(parents=True, exist_ok=True)
     today = date.today()
+    active_keywords(reload=True)  # pick up interests.keywords from config.json
 
     # --- fetch
     papers: list[dict] = []
@@ -394,6 +449,12 @@ def main() -> int:
             papers = [dict(s, source="hn") for s in fetch_hn_stories()]
         except Exception as e2:
             print(f"FETCH_ERROR hn-fallback: {e2}", file=sys.stderr)
+
+    # --- suppression (shared state) applies to BOTH feeds
+    suppressed = load_suppressed_ids()
+    if suppressed:
+        papers, n_sup = apply_suppression(papers, suppressed)
+        print(f"SUPPRESSED {n_sup} item(s) from feeds")
 
     # --- daily feed (strictly yesterday)
     daily = select_daily([p for p in papers if p.get("source") != "hn"], today)
